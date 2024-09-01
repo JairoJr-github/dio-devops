@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+    name: mysql-dados
+spec:
+    capacity:
+        storage: 50Mi
+    accessModes:
+    - ReadWriteMany
+    nfs:
+        path: /dados
+        server: 10.14.147.218
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-dados
+spec:
+  capacity:
+    storage: 50Mi
+  accessModes:
+  - ReadWriteOnce
+  volume: mysql-dados
+  resources:
+    requests:
+      storage: 50Mi
+  storageClassName: standard-two
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+spec:
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata: 
+      labels: 
+        app: mysql
+    spec:
+      containers:
+      - image: jairossjunior/projeto-database:1.0
+        args:    # ignora caso já tenha algo no diretório onde ta criando o colume do banco
+        - "--ignore-db-dir=lost+found"
+        imagePullPolicy: Always
+        name: mysql
+        ports:
+        - containerPort: 3306
+          name: mysql
+      
+        volumeMounts:
+        - name: mysql-dados
+          mountPath: /var;lib/mysql/
+      volumes:
+      - name: fileserver
+        persistentVolumeClaim:
+          claimName: fileserver
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: php
+  labels:
+    app: php
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: php
+  template:
+    metadata: 
+      labels: 
+        app: php
+    spec:
+      containers:
+      - image: jairossjunior/projeto-backend:1.0
+        name: php
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+          name: php
